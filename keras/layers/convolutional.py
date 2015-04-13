@@ -70,12 +70,12 @@ class Convolution3D(Layer):
         X = self.get_input(train)
 
         conv_out = conv3d(
-                signals=X,
-                filters=self.W,
-                signals_shape=self.image_shape,
-                filters_shape=self.W_shape,
-                border_mode=self.border_mode
-            )
+            signals=X,
+            filters=self.W,
+            signals_shape=self.image_shape,
+            filters_shape=self.W_shape,
+            border_mode=self.border_mode)
+
         output = self.activation(conv_out + self.b.dimshuffle('x', 'x',  0, 'x', 'x'))
         return output
 
@@ -90,6 +90,34 @@ class MaxPooling2D(Layer):
     def output(self, train):
         X = self.get_input(train)
         output = downsample.max_pool_2d(X, self.poolsize, ignore_border=self.ignore_border)
+        return output
+
+
+class MaxPooling3D(Layer):
+
+    def __init__(self, pool_size=(2, 2, 2), ignore_border=True):
+
+        self.pool_size = pool_size
+        self.ignore_border = ignore_border
+
+        dtensor5 = T.TensorType('float32', (0,)*5)
+        self.input = dtensor5()
+
+        self.params = []
+
+    def output(self, train):
+        X = self.get_input(train)
+
+        # max_pool_2d X and Z
+        output = downsample.max_pool_2d(input=X.dimshuffle(0, 4, 2, 3, 1),
+                                        ds=(self.pool_size[0], self.pool_size[1]),
+                                        ignore_border=self.ignore_border)
+
+        # max_pool_2d X and Y (with X constant)
+        output = downsample.max_pool_2d(input=output.dimshuffle(0, 4, 2, 3, 1),
+                                        ds=(1, self.pool_size[2]),
+                                        ignore_border=self.ignore_border)
+
         return output
 
 
