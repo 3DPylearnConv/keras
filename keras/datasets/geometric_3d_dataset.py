@@ -10,13 +10,8 @@ class Geometric3DDataset:
     # an axis-aligned cube
     CUBE_TYPE = 2
 
-    CLASSIFICATION_TASK = 0
-    KINECT_COMPLETION_TASK = 1
-    HALF_COMPLETION_TASK = 2
-
     def __init__(self,
                  patch_size=32,
-                 task=CLASSIFICATION_TASK,
                  centered=True):
 
         if patch_size <= 10:
@@ -24,32 +19,38 @@ class Geometric3DDataset:
 
         self.num_labels = 3  # used only for classification. TODO: find a more elegant way rather than hard-coding this
         self.patch_size = patch_size
-        self.task = task
         self.centered = centered
 
     def iterator(self,
                  batch_size=None,
-                 num_batches=None):
+                 num_batches=None,
+                 iter_type="CLASSIFICATION"):
 
-        return Geometric3dIterator(patch_size=self.patch_size,
-                                   task=self.task,
-                                   centered=self.centered,
-                                   num_labels=self.num_labels,
-                                   batch_size=batch_size,
-                                   num_batches=num_batches)
+        if iter_type == "CLASSIFICATION":
+            iter_class = Geometric3dClassificationIterator
+        elif iter_type == "KINECT_COMPLETION":
+            iter_class = Geometric3dKinectCompletionIterator
+        elif iter_type == "HALF_COMPLETION_TASK":
+            iter_class = Geometric3dHalfCompletionIterator
+        else:
+            raise NotImplementedError
+
+        return iter_class(patch_size=self.patch_size,
+                          centered=self.centered,
+                          num_labels=self.num_labels,
+                          batch_size=batch_size,
+                          num_batches=num_batches)
 
 
-class Geometric3dIterator():
+class BaseGeometric3dIterator():
     def __init__(self,
                  patch_size,
-                 task,
                  centered,
                  num_labels,
                  batch_size,
                  num_batches):
 
         self.patch_size = patch_size
-        self.task = task
         self.centered = centered
         self.num_labels = num_labels
         self.batch_size = batch_size
@@ -58,7 +59,7 @@ class Geometric3dIterator():
     def __iter__(self):
         return self
 
-    def __generate_solid_figures(self, geometry_types):
+    def _generate_solid_figures(self, geometry_types):
 
         if self.centered:
             (x0, y0, z0) = ((self.patch_size-1)/2,)*3
@@ -110,7 +111,7 @@ class Geometric3dIterator():
 
         return solid_figures
 
-    def __kinect_scan(self, solid_figures):
+    def _kinect_scan(self, solid_figures):
         """
         Takes a 5-d boolean numpy array representing batches of 3-d data in BZCXY format.
         Returns a 5-d array of the same shape, containing only one "on" z value (the one with the lowest index) per each (x, y) pair.
@@ -125,31 +126,42 @@ class Geometric3dIterator():
                             break
         return kinect_result
 
-    def __one_hot(self, labels):
+    def _one_hot(self, labels):
         one_hot_matrix = np.zeros((self.batch_size, self.num_labels), dtype=np.bool)
         for i, label in enumerate(labels):
             one_hot_matrix[i, label] = 1
         return one_hot_matrix
 
     def next(self):
-        if self.task == Geometric3DDataset.CLASSIFICATION_TASK:
-            # TODO: allow users to specify how they want the classes to be distributed.
-            # Currently using same probability for each class
-            geometry_types = np.random.randint(0, self.num_labels, self.batch_size)
-            labels = self.__one_hot(geometry_types)  #self.__one_hot(geometry_types)
-            data = self.__generate_solid_figures(
-                geometry_types=geometry_types)
-        elif self.task == Geometric3DDataset.KINECT_COMPLETION_TASK:
-            labels = self.__generate_solid_figures(
-                geometry_types=(Geometric3DDataset.SPHERE_TYPE,) * self.batch_size)
-            data = self.__kinect_scan(labels)
-        elif self.task == Geometric3DDataset.HALF_COMPLETION_TASK:
-            geometry_types = np.random.randint(0, self.num_labels, self.batch_size)
-            temp = self.__generate_solid_figures(
-                geometry_types=geometry_types)
-            # split the volume in halves in the x direction
-            data = temp[:, :, :, :int(self.patch_size/2), :]
-            labels = temp[:, :, :, int(self.patch_size/2):, :]
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
+
+
+class Geometric3dClassificationIterator(BaseGeometric3dIterator):
+
+    def next(self):
+        # TODO: allow users to specify how they want the classes to be distributed.
+        # Currently using same probability for each class
+        geometry_types = np.random.randint(0, self.num_labels, self.batch_size)
+        labels = self.__one_hot(geometry_types)  #self.__one_hot(geometry_types)
+        data = self._generate_solid_figures(geometry_types=geometry_types)
+        return data, labels
+
+
+class Geometric3dKinectCompletionIterator(BaseGeometric3dIterator):
+
+    def next(self):
+        labels = self._generate_solid_figures(geometry_types=(Geometric3DDataset.SPHERE_TYPE,) * self.batch_size)
+        data = self._kinect_scan(labels)
+        return data, labels
+
+
+class Geometric3dHalfCompletionIterator(BaseGeometric3dIterator):
+
+    def next(self):
+
+        geometry_types = np.random.randint(0, self.num_labels, self.batch_size)
+        temp = self._generate_solid_figures(geometry_types=geometry_types)
+        # split the volume in halves in the x direction
+        data = temp[:, :, :, :int(self.patch_size/2), :]
+        labels = temp[:, :, :, int(self.patch_size/2):, :]
         return data, labels

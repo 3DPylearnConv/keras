@@ -13,7 +13,7 @@ import sys
 
 sys.setrecursionlimit(2000)
 
-batch_size = 32
+batch_size = 16
 patch_size = 32
 
 nb_train_batches = 10
@@ -24,7 +24,7 @@ model = Sequential()
 
 filter_size = 5
 nb_filter_in = 1
-nb_filter_out = 32
+nb_filter_out = 64
 #32-5+1 = 28
 model.add(Convolution3D(nb_filter=nb_filter_out, stack_size=nb_filter_in, nb_row=filter_size, nb_col=filter_size, nb_depth=filter_size, border_mode='valid'))
 model.add(MaxPooling3D(pool_size=(2, 2, 2)))
@@ -33,16 +33,26 @@ model.add(Dropout(.5))
 
 filter_size = 3
 nb_filter_in = nb_filter_out
-nb_filter_out = 16
+nb_filter_out = 64
 #14-3+1 = 12
 model.add(Convolution3D(nb_filter=nb_filter_out, stack_size=nb_filter_in, nb_row=filter_size, nb_col=filter_size, nb_depth=filter_size, border_mode='valid'))
 model.add(MaxPooling3D(pool_size=(2, 2, 2)))
 model.add(Dropout(.5))
 #out 6
 
-model.add(Flatten(nb_filter_out*6*6*6))
-model.add(Dense(nb_filter_out*6*6*6, 1000, init='normal'))
-model.add(Dense(1000, patch_size*patch_size*patch_size, init='normal'))
+filter_size = 3
+nb_filter_in = nb_filter_out
+nb_filter_out = 64
+#6-3+1 = 4
+model.add(Convolution3D(nb_filter=nb_filter_out, stack_size=nb_filter_in, nb_row=filter_size, nb_col=filter_size, nb_depth=filter_size, border_mode='valid'))
+model.add(Dropout(.5))
+#out 4
+
+dim=4
+model.add(Flatten(nb_filter_out*dim*dim*dim))
+model.add(Dense(nb_filter_out*dim*dim*dim, 3000, init='normal'))
+model.add(Dense(3000,4000, init='normal'))
+model.add(Dense(4000, patch_size*patch_size*patch_size, init='normal'))
 
 # let's train the model using SGD + momentum (how original).
 sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
