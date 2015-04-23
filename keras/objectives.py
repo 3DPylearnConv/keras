@@ -28,6 +28,14 @@ def binary_crossentropy(y_true, y_pred):
     y_pred = T.clip(y_pred, epsilon, 1.0 - epsilon)
     return T.nnet.binary_crossentropy(y_pred, y_true).mean()
 
+#from conv_3d code
+def cross_entropy_error(y_true, y_pred):
+    y_true = y_true.flatten(2)
+    y_pred = T.clip(y_pred, epsilon, 1.0 - epsilon)
+    L = - T.sum(y_true * T.log(y_pred) + (1 - y_true) * T.log(1 - y_pred), axis=1)
+    cost = T.mean(L)
+    return cost
+
 # aliases
 mse = MSE = mean_squared_error
 mae = MAE = mean_absolute_error
