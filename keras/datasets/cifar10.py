@@ -1,8 +1,11 @@
-from data_utils import get_file
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from .data_utils import get_file
 import random
-import cPickle
+import sys, os
 import numpy as np
-from PIL import Image
+import six.moves.cPickle
+from six.moves import range
 
 def load_data(test_split=0.1, seed=113):
     dirname = "cifar-10-batches-py"
@@ -13,13 +16,20 @@ def load_data(test_split=0.1, seed=113):
     X = np.zeros((nb_samples, 3, 32, 32), dtype="uint8")
     y = np.zeros((nb_samples,), dtype="uint8")
     for i in range(1, 6):
-        fpath = path + '/data_batch_' + str(i)
+        fpath = os.path.join(path, 'data_batch_' + str(i))
         f = open(fpath, 'rb')
-        d = cPickle.load(f)
+        if sys.version_info < (3,):
+            d = six.moves.cPickle.load(f)
+        else:
+            d = six.moves.cPickle.load(f, encoding="bytes")
+            # decode utf8
+            for k, v in d.items():
+                del(d[k])
+                d[k.decode("utf8")] = v
         f.close()
         data = d["data"]
         labels = d["labels"]
-        
+
         data = data.reshape(data.shape[0], 3, 32, 32)
         X[(i-1)*10000:i*10000, :, :, :] = data
         y[(i-1)*10000:i*10000] = labels
@@ -38,4 +48,3 @@ def load_data(test_split=0.1, seed=113):
     y_test = y[int(len(X)*(1-test_split)):]
 
     return (X_train, y_train), (X_test, y_test)
-

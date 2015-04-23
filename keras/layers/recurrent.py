@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
 import theano
 import theano.tensor as T
 import numpy as np
@@ -6,6 +7,7 @@ import numpy as np
 from .. import activations, initializations
 from ..utils.theano_utils import shared_zeros, alloc_zeros_matrix
 from ..layers.core import Layer
+from six.moves import range
 
 class SimpleRNN(Layer):
     '''
@@ -65,6 +67,16 @@ class SimpleRNN(Layer):
             return outputs.dimshuffle((1,0,2))
         return outputs[-1]
 
+    def get_config(self):
+        return {"name":self.__class__.__name__,
+            "input_dim":self.input_dim,
+            "output_dim":self.output_dim,
+            "init":self.init.__name__,
+            "inner_init":self.inner_init.__name__,
+            "activation":self.activation.__name__,
+            "truncate_gradient":self.truncate_gradient,
+            "return_sequences":self.return_sequences}
+
 
 class SimpleDeepRNN(Layer):
     '''
@@ -103,7 +115,7 @@ class SimpleDeepRNN(Layer):
         o = args[0]
         for i in range(1, self.depth+1):
             o += self.inner_activation(T.dot(args[i], args[i+self.depth]))
-        return o        
+        return self.activation(o)
 
     def output(self, train):
         X = self.get_input(train)
@@ -124,6 +136,17 @@ class SimpleDeepRNN(Layer):
         if self.return_sequences:
             return outputs.dimshuffle((1,0,2))
         return outputs[-1]
+
+    def get_config(self):
+        return {"name":self.__class__.__name__,
+            "input_dim":self.input_dim,
+            "output_dim":self.output_dim,
+            "depth":self.depth,
+            "init":self.init.__name__,
+            "inner_init":self.inner_init.__name__,
+            "activation":self.activation.__name__,
+            "truncate_gradient":self.truncate_gradient,
+            "return_sequences":self.return_sequences}
 
 
 
@@ -152,7 +175,7 @@ class GRU(Layer):
     def __init__(self, input_dim, output_dim=128, 
         init='uniform', inner_init='orthogonal',
         activation='sigmoid', inner_activation='hard_sigmoid',
-        truncate_gradient=-1, weights=None, return_sequences=False):
+        weights=None, truncate_gradient=-1, return_sequences=False):
 
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -214,6 +237,16 @@ class GRU(Layer):
             return outputs.dimshuffle((1,0,2))
         return outputs[-1]
 
+    def get_config(self):
+        return {"name":self.__class__.__name__,
+            "input_dim":self.input_dim,
+            "output_dim":self.output_dim,
+            "init":self.init.__name__,
+            "inner_init":self.inner_init.__name__,
+            "activation":self.activation.__name__,
+            "truncate_gradient":self.truncate_gradient,
+            "return_sequences":self.return_sequences}
+
 
 
 class LSTM(Layer):
@@ -244,7 +277,7 @@ class LSTM(Layer):
     def __init__(self, input_dim, output_dim=128, 
         init='uniform', inner_init='orthogonal', 
         activation='tanh', inner_activation='hard_sigmoid',
-        truncate_gradient=-1, weights=None, return_sequences=False):
+        weights=None, truncate_gradient=-1, return_sequences=False):
 
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -316,5 +349,15 @@ class LSTM(Layer):
         if self.return_sequences:
             return outputs.dimshuffle((1,0,2))
         return outputs[-1]
+
+    def get_config(self):
+        return {"name":self.__class__.__name__,
+            "input_dim":self.input_dim,
+            "output_dim":self.output_dim,
+            "init":self.init.__name__,
+            "inner_init":self.inner_init.__name__,
+            "activation":self.activation.__name__,
+            "truncate_gradient":self.truncate_gradient,
+            "return_sequences":self.return_sequences}
         
 
