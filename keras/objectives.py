@@ -31,9 +31,10 @@ def binary_crossentropy(y_true, y_pred):
     return T.nnet.binary_crossentropy(y_pred, y_true).mean()
 
 #from conv_3d code
+cse_eps = .000001
 def cross_entropy_error(y_true, y_pred):
     y_true = y_true.flatten(2)
-    y_pred = T.clip(y_pred, epsilon, 1.0 - epsilon)
+    y_pred = T.clip(y_pred, cse_eps, 1.0 - cse_eps)
     L = - T.sum(y_true * T.log(y_pred) + (1 - y_true) * T.log(1 - y_pred), axis=1)
     cost = T.mean(L)
     return cost
@@ -55,3 +56,15 @@ def to_categorical(y):
     for i in range(len(y)):
         Y[i, y[i]] = 1.
     return Y
+
+
+def jaccard_similarity(a, b):
+    '''
+    Returns the number of pixels of the intersection of two voxel grids divided by the number of pixels in the union.
+    A return value of 1 means that the two binary grids are identical.
+    The inputs are expected to be theano tensors where we flatten all dimensions except for the first, and we average the simmilarity accross the 1st dimension.
+    '''
+    a = a.flatten(ndim=2)
+    b = b.flatten(ndim=2)
+    return T.mean( T.sum(a*b,       axis=1) \
+                    /T.sum((a+b)-a*b, axis=1) )
