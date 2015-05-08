@@ -1,4 +1,4 @@
-from keras.datasets import shrec_h5py_reconstruction_dataset
+from keras.datasets import hdf5_reconstruction_dataset
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
@@ -54,7 +54,8 @@ def train(model, train_dataset, test_dataset):
         print('beginning epoch: ' + str(e))
 
         train_iterator = train_dataset.iterator(batch_size=batch_size,
-                                                num_batches=nb_test_batches)
+                                                num_batches=nb_test_batches,
+                                                flatten_y=False)
 
         for b in range(nb_train_batches):
             X_batch, Y_batch = train_iterator.next()
@@ -66,7 +67,8 @@ def train(model, train_dataset, test_dataset):
 
 
         test_iterator = test_dataset.iterator(batch_size=batch_size,
-                                              num_batches=nb_train_batches)
+                                              num_batches=nb_train_batches,
+                                              flatten_y=False)
 
         average_error = 0
         for b in range(nb_test_batches):
@@ -99,7 +101,8 @@ def test(model, dataset, weights_filepath=BEST_WEIGHT_FILE):
     model.load_weights(weights_filepath)
 
     train_iterator = dataset.iterator(batch_size=batch_size,
-                                      num_batches=nb_test_batches)
+                                      num_batches=nb_test_batches,
+                                      flatten_y=False)
 
     batch_x, batch_y = train_iterator.next()
 
@@ -206,34 +209,28 @@ def get_model():
 
 if __name__ == "__main__":
 
-    for NUM_OBJECTS in [1, 5, 10, 25, 50, 100]:
 
-        DATA_DIR = 'reconstruction_results_novel_view_shrec/' + str(NUM_OBJECTS) + '/'
-        if not os.path.exists(DATA_DIR):
-            os.makedirs(DATA_DIR)
+    DATA_DIR = 'reconstruction_results_novel_toilet/'
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
 
-        H5_DATASET_FILE = '/srv/3d_conv_data/shrec_24x24x24_2_' + str(NUM_OBJECTS) + '_objects.h5'
-        INDICES_FILE = DATA_DIR + 'shrec_recon_indices_relu_' + str(NUM_OBJECTS) + '.npy'
+    H5_TEST_DATASET_FILE = '/srv/3d_conv_data/toilets_1_50.h5'
+    H5_TRAIN_DATASET_FILE = '/srv/3d_conv_data/toilets_2_50.h5'
 
-        LOSS_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_loss.txt'
-        ERROR_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_error.txt'
-        JACCARD_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_jaccard.txt'
+    LOSS_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_loss.txt'
+    ERROR_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_error.txt'
+    JACCARD_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_jaccard.txt'
 
-        CURRENT_WEIGHT_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_current_weights.h5'
-        BEST_WEIGHT_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_best_weights.h5'
+    CURRENT_WEIGHT_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_current_weights.h5'
+    BEST_WEIGHT_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_best_weights.h5'
 
-        model = get_model()
+    model = get_model()
 
-        train_dataset = shrec_h5py_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_DATASET_FILE,
-                                                                                mode='train',
-                                                                                train_indices_file=INDICES_FILE)
+    train_dataset = hdf5_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_TRAIN_DATASET_FILE)
+    test_dataset = hdf5_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_TEST_DATASET_FILE)
 
-        test_dataset = shrec_h5py_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_DATASET_FILE,
-                                                                               mode='test',
-                                                                               train_indices_file=INDICES_FILE)
-
-        train(model, train_dataset, test_dataset)
-        #test(model, test_dataset)
+    train(model, train_dataset, test_dataset)
+    #test(model, test_dataset)
 
 
 
