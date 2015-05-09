@@ -16,7 +16,7 @@ patch_size = 24
 
 nb_train_batches = 20
 nb_test_batches = 8
-nb_epoch = 100
+nb_epoch = 1000
 
 H5_DATASET_FILE = None
 INDICES_FILE = None
@@ -98,7 +98,9 @@ def train(model, train_dataset, test_dataset):
 
 def test(model, dataset, weights_filepath=BEST_WEIGHT_FILE):
 
-    model.load_weights(weights_filepath)
+    abs_weights_filepath = '/home/jvarley/3d_conv/keras/examples/' + weights_filepath
+
+    model.load_weights(abs_weights_filepath)
 
     train_iterator = dataset.iterator(batch_size=batch_size,
                                       num_batches=nb_test_batches,
@@ -106,28 +108,27 @@ def test(model, dataset, weights_filepath=BEST_WEIGHT_FILE):
 
     batch_x, batch_y = train_iterator.next()
 
-    results_dir = 'results'
+    results_dir = DATA_DIR + 'results'
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
     pred = model._predict(batch_x)
     pred = pred.reshape(batch_size, patch_size, 1, patch_size, patch_size)
 
+    pred_as_b012c = pred.transpose(0, 3, 4, 1, 2)
 
-
-    #pred_as_b012c = pred.transpose(0, 3, 4, 1, 2)
+    for i in range(batch_size):
+        v, t = mcubes.marching_cubes(pred_as_b012c[i, :, :, :, 0], 0.5)
+        mcubes.export_mesh(v, t, results_dir + '/toilet_' + str(i) + '.dae', 'drill')
+        viz.visualize_batch_x(pred, i, str(i), results_dir + "/pred_" + str(i))
+        viz.visualize_batch_x(batch_x, i, str(i), results_dir + "/input_" + str(i))
+        viz.visualize_batch_x(batch_y, i, str(i), results_dir + "/expected_" + str(i))
 
     # for i in range(batch_size):
-    #     v, t = mcubes.marching_cubes(pred_as_b012c[i, :, :, :, 0], 0.5)
-    #     mcubes.export_mesh(v, t, results_dir + '/drill_' + str(i) + '.dae', 'drill')
-    #     viz.visualize_batch_x(pred, i, str(i), results_dir + "/pred_" + str(i))
-    #     viz.visualize_batch_x(batch_x, i, str(i), results_dir + "/input_" + str(i))
-    #     viz.visualize_batch_x(batch_y, i, str(i), results_dir + "/expected_" + str(i))
-    for i in range(batch_size):
-        viz.visualize_batch_x_y_overlay(batch_x, batch_y, pred, i=i,  title=str(i))
-        # viz.visualize_batch_x(pred, i, 'pred_' + str(i), )
-        # viz.visualize_batch_x(batch_x, i,'batch_x_' + str(i), )
-        # viz.visualize_batch_x(batch_y, i, 'batch_y_' + str(i), )
+    #     viz.visualize_batch_x_y_overlay(batch_x, batch_y, pred, i=i,  title=str(i))
+    #     viz.visualize_batch_x(pred, i, 'pred_' + str(i), )
+    #     viz.visualize_batch_x(batch_x, i,'batch_x_' + str(i), )
+    #     viz.visualize_batch_x(batch_y, i, 'batch_y_' + str(i), )
 
 
     import IPython
@@ -229,8 +230,8 @@ if __name__ == "__main__":
     train_dataset = hdf5_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_TRAIN_DATASET_FILE)
     test_dataset = hdf5_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_TEST_DATASET_FILE)
 
-    train(model, train_dataset, test_dataset)
-    #test(model, test_dataset)
+    #train(model, train_dataset, test_dataset)
+    test(model, test_dataset,BEST_WEIGHT_FILE)
 
 
 
