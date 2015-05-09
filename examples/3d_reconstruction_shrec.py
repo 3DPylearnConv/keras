@@ -130,37 +130,6 @@ def test(model, dataset, weights_filepath=BEST_WEIGHT_FILE):
     import IPython
     IPython.embed()
 
-
-def test_real_world(model, weights_filepath=BEST_WEIGHT_FILE):
-
-    model.load_weights(weights_filepath)
-
-    dataset = get_graspit_dataset()
-    train_iterator = dataset.iterator(batch_size=batch_size,
-                                          num_batches=nb_test_batches)
-
-    batch_x = train_iterator.next()
-    import IPython
-    IPython.embed()
-
-    results_dir = 'results_graspit'
-    # if not os.path.exists(results_dir):
-    #     os.mkdir(results_dir)
-    #
-    # pred = model._predict(batch_x)
-    # pred = pred.reshape(batch_size, patch_size, 1, patch_size, patch_size)
-    #
-    #
-    # pred_as_b012c = pred.transpose(0, 3, 4, 1, 2)
-    #
-    # for i in range(batch_size):
-    #     v, t = mcubes.marching_cubes(pred_as_b012c[i, :, :, :, 0], 0.5)
-    #     mcubes.export_mesh(v, t, results_dir + '/drill_' + str(i) + '.dae', 'drill')
-    #     viz.visualize_batch_x(pred, i, str(i), results_dir + "/pred_" + str(i))
-    #     viz.visualize_batch_x(batch_x, i, str(i), results_dir + "/input_" + str(i))
-    #     viz.visualize_batch_x(batch_y, i, str(i), results_dir + "/expected_" + str(i))
-
-
 def get_model():
     model = Sequential()
 

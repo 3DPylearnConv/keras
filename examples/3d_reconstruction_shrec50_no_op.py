@@ -1,4 +1,4 @@
-from keras.datasets import hdf5_reconstruction_dataset
+from keras.datasets import shrec_h5py_reconstruction_dataset
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
@@ -41,16 +41,15 @@ def numpy_jaccard_similarity(a, b):
 
 def train(train_dataset, test_dataset):
     test_iterator = test_dataset.iterator(batch_size=1,
-                                              num_batches=12544,
-                                              flatten_y=False)
-    jaccards = np.zeros(12544)
-    for b in range(12544):
+                                              num_batches=12800)
+    jaccards = np.zeros(12800)
+    for b in range(12800):
         X_batch, Y_batch = test_iterator.next()
         Y_batch = Y_batch.reshape(Y_batch.shape[0], -1)
         # Use an "identity classifier" that just uses the input as the output
         binarized_prediction = np.array(X_batch > 0.5, dtype=int)
         jaccard_similarity = numpy_jaccard_similarity(Y_batch, binarized_prediction)
-        print('jaccard_similarity: ' + str(jaccard_similarity))
+        #print('jaccard_similarity: ' + str(jaccard_similarity))
         jaccards[b] = jaccard_similarity
     #from IPython import embed
     #embed()
@@ -61,6 +60,9 @@ def train(train_dataset, test_dataset):
     import matplotlib.pyplot as plt
     plt.hist(jaccards, 100)
     plt.show()
+
+    from IPython import embed
+    embed()
 
 
 
@@ -148,35 +150,26 @@ def get_model():
 
 
 if __name__ == "__main__":
+    for NUM_OBJECTS in [50]:
 
-    '''
-    DATA_DIR = 'reconstruction_results_novel_toilet/'
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
-    '''
+        DATA_DIR = 'reconstruction_results_novel_view_shrec/' + str(NUM_OBJECTS) + '/'
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
 
-    H5_TEST_DATASET_FILE = '/srv/3d_conv_data/toilets_1_50.h5'
-    H5_TRAIN_DATASET_FILE = '/srv/3d_conv_data/toilets_2_50.h5'
+        H5_DATASET_FILE = '/srv/3d_conv_data/shrec_24x24x24_2_' + str(NUM_OBJECTS) + '_objects.h5'
+        INDICES_FILE = DATA_DIR + 'shrec_recon_indices_relu_' + str(NUM_OBJECTS) + '.npy'
 
-    '''
-    LOSS_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_loss.txt'
-    ERROR_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_error.txt'
-    JACCARD_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_jaccard.txt'
+        train_dataset = shrec_h5py_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_DATASET_FILE,
+                                                                                mode='train',
+                                                                                train_indices_file=INDICES_FILE)
 
-    CURRENT_WEIGHT_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_current_weights.h5'
-    BEST_WEIGHT_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_best_weights.h5'
-    '''
+        test_dataset = shrec_h5py_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_DATASET_FILE,
+                                                                               mode='test',
+                                                                               train_indices_file=INDICES_FILE)
 
-    #model = get_model()
+        print(test_dataset.get_num_examples())
 
-    train_dataset = hdf5_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_TRAIN_DATASET_FILE)
-    test_dataset = hdf5_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_TEST_DATASET_FILE)
-
-    print(test_dataset.get_num_examples());
-
-
-    train(train_dataset, test_dataset)
-    #test(model, test_dataset)
+        train(train_dataset, test_dataset)
 
 
 

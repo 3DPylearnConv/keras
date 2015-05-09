@@ -1,4 +1,4 @@
-from keras.datasets import hdf5_reconstruction_dataset
+from keras.datasets import shrec_h5py_reconstruction_dataset
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
@@ -35,22 +35,81 @@ def numpy_jaccard_similarity(a, b):
     Returns the number of pixels of the intersection of two voxel grids divided by the number of pixels in the union.
     The inputs are expected to be numpy 5D ndarrays in BZCXY format.
     '''
-    a = a.reshape(a.shape[0], -1)
-    b = b.reshape(b.shape[0], -1)
     return np.mean(np.sum(a*b, axis=1) / np.sum((a+b)-a*b, axis=1))
 
-def train(train_dataset, test_dataset):
-    test_iterator = test_dataset.iterator(batch_size=1,
-                                              num_batches=12544,
-                                              flatten_y=False)
-    jaccards = np.zeros(12544)
-    for b in range(12544):
-        X_batch, Y_batch = test_iterator.next()
+def train(model, train_dataset, test_dataset):
+
+    with open(LOSS_FILE, "w") as loss_file:
+        print("logging loss")
+
+    with open(ERROR_FILE, "w") as error_file:
+        print("logging error")
+
+    with open(JACCARD_FILE, "w") as jaccard_file:
+        print("logging jaccard_file")
+
+    lowest_error = 1000000
+
+    for e in range(nb_epoch):
+        print('beginning epoch: ' + str(e))
+
+        train_iterator = train_dataset.iterator(batch_size=batch_size,
+                                                num_batches=nb_test_batches)
+
+        for b in range(nb_train_batches):
+            X_batch, Y_batch = train_iterator.next()
+            Y_batch = Y_batch.reshape(Y_batch.shape[0], reduce(mul, Y_batch.shape[1:]))
+            loss = model.train(X_batch, Y_batch)
+            print 'loss: ' + str(loss)
+            with open(LOSS_FILE, "a") as loss_file:
+                loss_file.write(str(loss) + '\n')
+
+
+        test_iterator = test_dataset.iterator(batch_size=batch_size,
+                                              num_batches=nb_train_batches)
+
+        average_error = 0
+        for b in range(nb_test_batches):
+            X_batch, Y_batch = test_iterator.next()
+            Y_batch = Y_batch.reshape(Y_batch.shape[0], reduce(mul, Y_batch.shape[1:]))
+            error = model.test(X_batch, Y_batch)
+            prediction = model._predict(X_batch)
+            binarized_prediction = np.array(prediction > 0.5, dtype=int)
+            jaccard_similarity = numpy_jaccard_similarity(Y_batch, binarized_prediction)
+            average_error += error
+            print('error: ' + str(error))
+            print('jaccard_similarity: ' + str(jaccard_similarity))
+            with open(ERROR_FILE, "a") as error_file:
+                error_file.write(str(error) + '\n')
+            with open(JACCARD_FILE, "a") as jaccard_file:
+                jaccard_file.write(str(jaccard_similarity) + '\n')
+        average_error /= nb_test_batches
+
+        if e % 4 == 0:
+            model.save_weights(CURRENT_WEIGHT_FILE)
+
+        if lowest_error >= average_error:
+            lowest_error = average_error
+            print('new lowest error ' + str(lowest_error))
+            model.save_weights(BEST_WEIGHT_FILE)
+
+
+def test(model, dataset, weights_filepath=BEST_WEIGHT_FILE):
+
+    model.load_weights(weights_filepath)
+
+    BIG_NUMBER = 1E3
+
+    iterator = dataset.iterator(batch_size=batch_size,
+                                      num_batches=BIG_NUMBER)
+    jaccards = np.zeros(BIG_NUMBER)
+    for b in range(BIG_NUMBER):
+        X_batch, Y_batch = iterator.next()
         Y_batch = Y_batch.reshape(Y_batch.shape[0], -1)
         # Use an "identity classifier" that just uses the input as the output
         binarized_prediction = np.array(X_batch > 0.5, dtype=int)
         jaccard_similarity = numpy_jaccard_similarity(Y_batch, binarized_prediction)
-        print('jaccard_similarity: ' + str(jaccard_similarity))
+        #print('jaccard_similarity: ' + str(jaccard_similarity))
         jaccards[b] = jaccard_similarity
     #from IPython import embed
     #embed()
@@ -62,18 +121,13 @@ def train(train_dataset, test_dataset):
     plt.hist(jaccards, 100)
     plt.show()
 
+    from IPython import embed
+    embed()
 
+    '''
+    for i in range(1E3)
 
-'''
-def test(model, dataset, weights_filepath=BEST_WEIGHT_FILE):
-
-    model.load_weights(weights_filepath)
-
-    train_iterator = dataset.iterator(batch_size=batch_size,
-                                      num_batches=nb_test_batches,
-                                      flatten_y=False)
-
-    batch_x, batch_y = train_iterator.next()
+    batch_x, batch_y = iterator.next()
 
     results_dir = 'results'
     if not os.path.exists(results_dir):
@@ -81,6 +135,7 @@ def test(model, dataset, weights_filepath=BEST_WEIGHT_FILE):
 
     pred = model._predict(batch_x)
     pred = pred.reshape(batch_size, patch_size, 1, patch_size, patch_size)
+    '''
 
 
 
@@ -101,8 +156,6 @@ def test(model, dataset, weights_filepath=BEST_WEIGHT_FILE):
 
     import IPython
     IPython.embed()
-'''
-
 
 def get_model():
     model = Sequential()
@@ -149,34 +202,31 @@ def get_model():
 
 if __name__ == "__main__":
 
-    '''
-    DATA_DIR = 'reconstruction_results_novel_toilet/'
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
-    '''
+    for NUM_OBJECTS in [1, 5, 10, 25, 50, 100]:
 
-    H5_TEST_DATASET_FILE = '/srv/3d_conv_data/toilets_1_50.h5'
-    H5_TRAIN_DATASET_FILE = '/srv/3d_conv_data/toilets_2_50.h5'
+        print("NUM_OBJECTS: ", NUM_OBJECTS)
 
-    '''
-    LOSS_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_loss.txt'
-    ERROR_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_error.txt'
-    JACCARD_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_jaccard.txt'
+        DATA_DIR = '/home/jvarley/3d_conv/keras/examples/reconstruction_results_novel_view_shrec/' + str(NUM_OBJECTS) + '/'
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
 
-    CURRENT_WEIGHT_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_current_weights.h5'
-    BEST_WEIGHT_FILE = DATA_DIR + __file__.split('.')[0] + '_relu_best_weights.h5'
-    '''
+        H5_DATASET_FILE_TESTING = '/srv/3d_conv_data/shrec_24x24x24_3_25unique_objects.h5'
 
-    #model = get_model()
+        #H5_DATASET_FILE = '/srv/3d_conv_data/shrec_24x24x24_2_' + str(NUM_OBJECTS) + '_objects.h5'
+        INDICES_FILE = DATA_DIR + 'shrec_recon_indices_relu_' + str(NUM_OBJECTS) + '.npy'
 
-    train_dataset = hdf5_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_TRAIN_DATASET_FILE)
-    test_dataset = hdf5_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_TEST_DATASET_FILE)
+        BEST_WEIGHT_FILE = '/home/jvarley/3d_conv/keras/examples/reconstruction_results_novel_view_shrec/1/3d_reconstruction_shrec_relu_best_weights.h5'
 
-    print(test_dataset.get_num_examples());
+        print(BEST_WEIGHT_FILE)
 
+        model = get_model()
 
-    train(train_dataset, test_dataset)
-    #test(model, test_dataset)
+        test_dataset = shrec_h5py_reconstruction_dataset.ReconstructionDataset(hdf5_filepath=H5_DATASET_FILE_TESTING,
+                                                                               mode='test',
+                                                                               train_indices_file=INDICES_FILE)
+
+        #train(model, train_dataset, test_dataset)
+        test(model, test_dataset)
 
 
 
